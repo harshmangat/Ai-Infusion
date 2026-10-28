@@ -1,81 +1,73 @@
-"""Compensation calculators for shipment exceptions."""
-
-import math
-
-
-DELAY_DAILY_RATE = 10.0
-DELAY_VALUE_CAP_RATE = 0.20
-DAMAGE_RATES = {
-    "minor": 0.25,
-    "moderate": 0.50,
-    "severe": 1.00,
-}
-LOST_SHIPMENT_GOODWILL_CREDIT = 50.0
-
-
-def _validate_shipment_value(shipment_value: float) -> None:
-    if (
-        isinstance(shipment_value, bool)
-        or not isinstance(shipment_value, (int, float))
-        or not math.isfinite(shipment_value)
-        or shipment_value < 0
-    ):
-        raise ValueError("shipment_value must be a finite, non-negative number.")
+"""Simple compensation calculations for shipment exceptions."""
 
 
 def calculate_delay_compensation(
     shipment_value: float, days_delayed: int
 ) -> dict[str, object]:
-    """Pay $10 per delayed day, capped at 20% of the shipment value."""
-    _validate_shipment_value(shipment_value)
-    if isinstance(days_delayed, bool) or not isinstance(days_delayed, int):
-        raise ValueError("days_delayed must be a non-negative integer.")
+    """Pay $10 per delayed day, up to 20% of the shipment value."""
+    if shipment_value < 0:
+        raise ValueError("Shipment value cannot be negative.")
     if days_delayed < 0:
-        raise ValueError("days_delayed must be a non-negative integer.")
+        raise ValueError("Days delayed cannot be negative.")
 
-    cap_amount = round(shipment_value * DELAY_VALUE_CAP_RATE, 2)
-    amount = round(min(days_delayed * DELAY_DAILY_RATE, cap_amount), 2)
+    daily_compensation = days_delayed * 10
+    maximum_compensation = shipment_value * 0.20
+
+    # Use the cap when the daily compensation is higher than 20% of the value.
+    if daily_compensation > maximum_compensation:
+        compensation_amount = maximum_compensation
+    else:
+        compensation_amount = daily_compensation
+
     return {
         "category": "delayed",
-        "compensation_amount": amount,
-        "shipment_value": round(shipment_value, 2),
+        "compensation_amount": compensation_amount,
+        "shipment_value": shipment_value,
         "days_delayed": days_delayed,
-        "cap_amount": cap_amount,
+        "cap_amount": maximum_compensation,
     }
 
 
 def calculate_damage_compensation(
     shipment_value: float, severity: str
 ) -> dict[str, object]:
-    """Compensate 25%, 50%, or 100% of value based on damage severity."""
-    _validate_shipment_value(shipment_value)
-    if not isinstance(severity, str):
-        raise ValueError("severity must be minor, moderate, or severe.")
+    """Pay a percentage of the shipment value based on damage severity."""
+    if shipment_value < 0:
+        raise ValueError("Shipment value cannot be negative.")
 
-    normalized_severity = severity.strip().lower()
-    if normalized_severity not in DAMAGE_RATES:
-        raise ValueError("severity must be minor, moderate, or severe.")
+    if severity == "minor":
+        compensation_rate = 0.25
+    elif severity == "moderate":
+        compensation_rate = 0.50
+    elif severity == "severe":
+        compensation_rate = 1.00
+    else:
+        raise ValueError("Severity must be minor, moderate, or severe.")
 
-    rate = DAMAGE_RATES[normalized_severity]
+    compensation_amount = shipment_value * compensation_rate
+
     return {
         "category": "damaged",
-        "compensation_amount": round(shipment_value * rate, 2),
-        "shipment_value": round(shipment_value, 2),
-        "severity": normalized_severity,
-        "compensation_rate": rate,
+        "compensation_amount": compensation_amount,
+        "shipment_value": shipment_value,
+        "severity": severity,
+        "compensation_rate": compensation_rate,
     }
 
 
-def calculate_lost_compensation(shipment_value: float) -> dict[str, object]:
-    """Compensate the full shipment value plus a $50 logistics credit."""
-    _validate_shipment_value(shipment_value)
+def calculate_lost_compensation(
+    shipment_value: float,
+) -> dict[str, object]:
+    """Pay the shipment value plus a $50 logistics credit."""
+    if shipment_value < 0:
+        raise ValueError("Shipment value cannot be negative.")
 
-    shipment_value = round(shipment_value, 2)
+    goodwill_credit = 50
+    compensation_amount = shipment_value + goodwill_credit
+
     return {
         "category": "lost",
-        "compensation_amount": round(
-            shipment_value + LOST_SHIPMENT_GOODWILL_CREDIT, 2
-        ),
+        "compensation_amount": compensation_amount,
         "shipment_value": shipment_value,
-        "goodwill_credit": LOST_SHIPMENT_GOODWILL_CREDIT,
+        "goodwill_credit": goodwill_credit,
     }
