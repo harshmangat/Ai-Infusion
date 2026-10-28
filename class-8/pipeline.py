@@ -1,5 +1,6 @@
 """Connect report classification, compensation, and response drafting."""
 
+from chains import create_chains
 from tools import (
     calculate_damage_compensation,
     calculate_delay_compensation,
@@ -15,17 +16,15 @@ def process_exception(
     exception_report: str,
     shipment_value: float,
     customer_tier: str,
-    classify_chain,
-    escalate_chain,
-    draft_email_chain,
+    classify_chain=None,
+    escalate_chain=None,
+    draft_email_chain=None,
     days_delayed: int | None = None,
     damage_severity: str | None = None,
 ) -> dict[str, object]:
     """Classify a report, calculate compensation, and draft the response.
 
-    Each chain is expected to be a LangChain object with an ``invoke`` method.
-    The classify chain receives ``{"report": exception_report}`` and returns
-    one category: delayed, damaged, lost, or unknown.
+    LangChain chains are created automatically unless test chains are provided.
     """
     if customer_tier == "premium":
         escalation_threshold = PREMIUM_ESCALATION_THRESHOLD
@@ -34,7 +33,21 @@ def process_exception(
     else:
         raise ValueError("Customer tier must be premium or standard.")
 
+    if (
+        classify_chain is None
+        or escalate_chain is None
+        or draft_email_chain is None
+    ):
+        created_chains = create_chains()
+        if classify_chain is None:
+            classify_chain = created_chains[0]
+        if escalate_chain is None:
+            escalate_chain = created_chains[1]
+        if draft_email_chain is None:
+            draft_email_chain = created_chains[2]
+
     category = classify_chain.invoke({"report": exception_report})
+    category = category.strip().lower()
     if category == "delayed":
         if days_delayed is None:
             raise ValueError("Provide the number of days the shipment was delayed.")
