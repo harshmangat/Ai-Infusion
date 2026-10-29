@@ -80,3 +80,15 @@ if __name__ == "__main__":
     test_lost_compensation()
     test_invalid_inputs()
     print("All compensation tests passed.")
+    from tools import calculate_delay_compensation
+
+print(calculate_delay_compensation(100, 1))
+print(calculate_delay_compensation(100, 5))
+print(calculate_delay_compensation(40, 3))
+
+
+print(calculate_damage_compensation(200, "minor"))
+print(calculate_damage_compensation(200, "moderate"))
+print(calculate_damage_compensation(200, "severe"))
+
+print(calculate_lost_compensation(125.50))
